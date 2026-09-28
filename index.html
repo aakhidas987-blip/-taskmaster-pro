@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="theme-color" content="#0f172a">
+<meta name="description" content="TaskMaster Pro — feature-rich productivity workspace">
+<title>TaskMaster Pro</title>
+
+<!-- Allowed external dependencies: Tailwind CSS + FontAwesome + Canvas Confetti + Firebase Auth -->
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+<script type="module">
+  /*
+    REAL CLOUD AUTH:
+    1) Create a Firebase project.
+    2) Enable Email/Password and Google under Authentication > Sign-in method.
+    3) Replace the firebaseConfig object below with your project's config.
+    4) Add your deployed domain to Firebase Authentication > Settings > Authorized domains.
+    The rest of this single HTML file is unchanged.
+  */
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+  import {
+    getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword,
+    createUserWithEmailAndPassword, updateProfile, signOut, onAuthStateChanged,
+    sendPasswordResetEmail
+  } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "YOUR_FIREBASE_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+  };
+
+  const ready = !Object.values(firebaseConfig).some(v => String(v).startsWith("YOUR_"));
+  window.TMAuth = { ready, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword,
+    createUserWithEmailAndPassword, updateProfile, signOut, sendPasswordResetEmail };
+
+  if (ready) {
+    try {
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
+      const google = new GoogleAuthProvider();
+      window.TMAuth.auth = auth;
+      window.TMAuth.google = google;
+      onAuthStateChanged(auth, user => window.dispatchEvent(new CustomEvent("tm-auth", {detail:user})));
+    } catch (e) {
+      console.error("Firebase initialization failed:", e);
+      window.TMAuth.ready = false;
+    }
+  }
+  window.dispatchEvent(new Event("tm-auth-ready"));
+</script>
+
+<style>
+  html{scroll-behavior:smooth}
+  body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  .glass{background:rgba(255,255,255,.72);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.5);box-shadow:0 18px 55px rgba(15,23,42,.08)}
+  .dark .glass{background:rgba(15,23,42,.72);border-color:rgba(148,163,184,.14);box-shadow:0 18px 55px rgba(0,0,0,.28)}
+  .bg-grid{background-image:linear-gradient(rgba(148,163,184,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(148,163,184,.07) 1px,transparent 1px);background-size:32px 32px}
+  .fade{animation:fade .28s ease both}@keyframes fade{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+  .pop{animation:pop .25s ease both}@keyframes pop{0%{transform:scale(.96);opacity:0}100%{transform:scale(1);opacity:1}}
+  .task-card{transition:.2s transform,.2s box-shadow}.task-card:hover{transform:translateY(-2px)}
+  .dragging{opacity:.45;outline:2px dashed #6366f1}
+  .ring{background:conic-gradient(#6366f1 var(--p),rgba(148,163,184,.18) 0)}
+  .no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{scrollbar-width:none}
+  input,textarea,select{outline:none}
+  .kbd{border:1px solid rgba(148,163,184,.3);padding:.15rem .4rem;border-radius:.35rem;font-size:.7rem}
+  .sidebar-item.active{background:rgba(99,102,241,.12);color:#4f46e5}
+  .dark .sidebar-item.active{color:#a5b4fc;background:rgba(99,102,241,.16)}
+</style>
+<script>
+tailwind.config={darkMode:'class',theme:{extend:{colors:{brand:{500:'#6366f1',600:'#4f46e5'}}}}}
+</script>
+</head>
+
+<body class="min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-500">
+<div id="authScreen" class="min-h-screen hidden items-center justify-center p-4 bg-grid relative overflow-hidden">
+  <div class="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-indigo-500/20 blur-3xl"></div>
+  <div class="absolute -bottom-40 -right-20 w-[30rem] h-[30rem] rounded-full bg-cyan-500/15 blur-3xl"></div>
+  <div class="glass rounded-3xl w-full max-w-5xl overflow-hidden grid md:grid-cols-2 relative z-10">
+    <div class="hidden md:flex p-10 bg-gradient-to-br from-indigo-600 via-violet-600 to-cyan-500 text-white flex-col justify-between">
+      <div>
+        <div class="flex items-center gap-3 text-2xl font-black"><span class="w-11 h-11 rounded-2xl bg-white/15 grid place-items-center"><i class="fa-solid fa-check-double"></i></span>TaskMaster Pro</div>
+        <h1 class="text-5xl font-black leading-tight mt-20">Plan less.<br>Finish more.</h1>
+        <p class="mt-5 text-white/80 max-w-sm">A complete productivity command center for tasks, habits, focus sessions, projects and analytics.</p>
+      </div>
+      <div class="rounded-2xl bg-white/10 p-4 backdrop-blur">
+        <div class="flex gap-1 mb-2"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
+        <p class="text-sm">"Everything I need for a focused day in one workspace."</p>
+      </div>
+    </div>
+    <div class="p-6 sm:p-10 bg-white/70 dark:bg-slate-900/80">
+      <div class="flex items-center justify-between mb-8">
+        <div><p class="text-sm text-slate-500">Welcome to</p><h2 class="text-3xl font-black">TaskMaster Pro</h2></div>
+        <button id="authTheme" class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800"><i class="fa-solid fa-moon"></i></button>
+      </div>
+      <div class="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl mb-6">
+        <button data-auth-tab="login" class="auth-tab flex-1 py-2 rounded-lg font-semibold bg-white dark:bg-slate-700">Login</button>
+        <button data-auth-tab="signup" class="auth-tab flex-1 py-2 rounded-lg font-semibold text-slate-500">Sign up</button>
+      </div>
+      <form id="authForm" class="space-y-4">
+        <div id="nameWrap" class="hidden"><label class="text-sm font-semibold">Full name</label><input id="authName" class="w-full mt-1 px-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800" placeholder="Alex Morgan"></div>
+        <div><label class="text-sm font-semibold">Email</label><input id="authEmail" type="email" required class="w-full mt-1 px-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800" placeholder="you@example.com"></div>
+        <div><label class="text-sm font-semibold">Password</label><input id="authPassword" type="password" minlength="6" required class="w-full mt-1 px-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800" placeholder="At least 6 characters"></div>
+        <button id="authSubmit" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition">Continue</button>
+      </form>
+      <div class="relative my-5"><div class="border-t border-slate-200 dark:border-slate-700"></div><span class="absolute left-1/2 -translate-x-1/2 -top-3 px-3 bg-white dark:bg-slate-900 text-xs text-slate-400">OR</span></div>
+      <button id="googleBtn" class="w-full py-3 rounded-xl border border-slate-200 dark:border-slate-700 font-bold flex items-center justify-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800"><i class="fa-brands fa-google text-red-500"></i> Continue with Google</button>
+      <button id="forgotBtn" class="w-full mt-4 text-sm text-indigo-600 font-semibold">Forgot password?</button>
+      <p id="authHint" class="text-xs text-slate-500 mt-5 text-center">Configure Firebase above for real cloud authentication. Demo mode works locally in this file.</p>
+    </div>
+  </div>
+</div>
+
+<div id="app" class="hidden min-h-screen">
+  <aside id="sidebar" class="fixed z-40 inset-y-0 left-0 w-72 bg-white/90 dark:bg-slate-900/95 border-r border-slate-200 dark:border-slate-800 -translate-x-full lg:translate-x-0 transition-transform duration-300 backdrop-blur-xl">
+    <div class="p-5 flex items-center justify-between">
+      <div class="flex items-center gap-3 font-black text-xl"><span class="w-10 h-10 rounded-xl bg-indigo-600 text-white grid place-items-center"><i class="fa-solid fa-check-double"></i></span>TaskMaster <span class="text-indigo-600">Pro</span></div>
+      <button id="closeSidebar" class="lg:hidden text-slate-400"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="px-4 pb-4">
+      <button id="quickAdd" class="w-full py-3 rounded-xl bg-indigo-600 text-white font-bold shadow-lg shadow-indigo-500/20"><i class="fa-solid fa-plus mr-2"></i>New Task</button>
+    </div>
+    <nav class="px-3 space-y-1 overflow-y-auto max-h-[calc(100vh-180px)] no-scrollbar">
+      <p class="px-3 text-[11px] uppercase tracking-widest text-slate-400 font-bold pt-2 pb-1">Workspace</p>
+      <button data-view="dashboard" class="sidebar-item active w-full text-left px-3 py-2.5 rounded-xl"><i class="fa-solid fa-chart-pie w-6"></i>Dashboard</button>
+      <button data-view="tasks" class="sidebar-item w-full text-left px-3 py-2.5 rounded-xl"><i class="fa-solid fa-list-check w-6"></i>All Tasks</button>
+      <button data-view="today" class="sidebar-item w-full text-left px-3 py-2.5 rounded-xl"><i class="fa-solid fa-calendar-day w-6"></i>Today</button>
+      <button data-view="upcoming" class="sidebar-item w-full text-left px-3 py-2.5 rounded-xl"><i class="fa-regular fa-clock w-6"></i>Upcoming <span id="sideUpcoming" class="float-right text-[10px] bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-full">0</span></button>
+      <button data-view="overdue" class="sidebar-item w-full text-left px-3 py-2.5 rounded-xl"><i class="fa-solid fa-triangle-exclamation text-red-400 w-6"></i>Overdue <span id="sideOverdue" class="float-right text-[10px] bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-full">0</span></button>
+      <button data-view="completed" class="sidebar-item w-full text-left px-3 py-2.5 rounded-xl"><i class="fa-solid fa-circle-check text-emerald-400 w-6"></i>Completed <span id="sideCompleted" class="float-right text-[10px] bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-full">0</span></button>
+      <button data-view="calendar" class="sidebar-item w-full text-left px-3 py-2.5 rounded-xl"><i class="fa-solid fa-calendar w-6"></i>Calendar</button>
+      <button data-view="board" class="sidebar-item w-full text-left px-3 py-2.5 rounded-xl"><i class="fa-solid fa-table-columns w-6"></i>Board</button>
+      <button data-view="timeline" class="sidebar-item w-full text-left px-3 py-2.5 rounded-xl"><i class="fa-solid fa-timeline w-6"></i>Timeline</button>
+      <p class="px-3 text-[11px] uppercase tracking-widest text-slate-400 font-bold pt-5 pb-1">Productivity & AI</p>
+      <button data-view="habits" class="sidebar-item w-full text-left px-3 py-2.5 rounded-xl"><i class="fa-solid fa-fire text-orange-400 w-6"></i>Habit Tracker</button>
+      <button data-view="focus" class="sidebar-item w-full text-left px-3 py-2.5 rounded-xl"><i class="fa-solid fa-stopwatch text-rose-400 w-6"></i>Pomodoro Timer</button>
+      <button data-view="coach" class="sidebar-item w-full text-left px-3 py-2.5 rounded-xl"><i class="fa-solid fa-wand-magic-sparkles text-fuchsia-400 w-6"></i>AI Focus Coach</button>
+      <button data-view="achievements" class="sidebar-item w-full text-left px-3 py-2.5 rounded-xl"><i class="fa-solid fa-trophy text-amber-400 w-6"></i>Achievements & Level</button>
+      <button data-view="analytics" class="sidebar-item w-full text-left px-3 py-2.5 rounded-xl"><i class="fa-solid fa-chart-line w-6"></i>Analytics</button>
+      <div class="flex items-center justify-between px-3 pt-5 pb-1"><p class="text-[11px] uppercase tracking-widest text-slate-400 font-bold">Projects</p><button id="newProjectBtn" class="text-xs text-slate-400 hover:text-indigo-500 font-bold"><i class="fa-solid fa-plus"></i> New</button></div>
+      <button data-project="Work Projects" class="sidebar-item w-full text-left px-3 py-2.5 rounded-xl"><i class="fa-solid fa-circle text-indigo-400 text-[10px] w-6"></i>Work Projects</button>
+      <button data-project="Personal" class="sidebar-item w-full text-left px-3 py-2.5 rounded-xl"><i class="fa-solid fa-circle text-emerald-400 text-[10px] w-6"></i>Personal</button>
+      <div id="dynamicProjects"></div>
+    </nav>
+    <div class="absolute bottom-0 inset-x-0 p-4 border-t border-slate-200 dark:border-slate-800">
+      <div class="flex items-center gap-3">
+        <div id="avatar" class="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 grid place-items-center font-black">TM</div>
+        <div class="min-w-0 flex-1"><p id="profileName" class="font-bold truncate">Demo User</p><p id="profileEmail" class="text-xs text-slate-500 truncate">demo@local</p></div>
+        <button id="logoutBtn" title="Log out" class="text-slate-400 hover:text-red-500"><i class="fa-solid fa-right-from-bracket"></i></button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="lg:ml-72 min-h-screen">
+    <header class="sticky top-0 z-30 bg-slate-100/80 dark:bg-slate-950/80 backdrop-blur-xl border-b border-slate-200/70 dark:border-slate-800/70">
+      <div class="px-4 sm:px-6 py-3 flex items-center gap-3">
+        <button id="openSidebar" class="lg:hidden w-10 h-10 rounded-xl bg-white dark:bg-slate-900"><i class="fa-solid fa-bars"></i></button>
+        <div class="relative flex-1 max-w-2xl">
+          <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+          <input id="search" class="w-full pl-11 pr-20 py-3 rounded-xl bg-white/80 dark:bg-slate-900 border border-slate-200 dark:border-slate-800" placeholder="Search tasks, notes, tags… ( / )">
+          <span class="kbd absolute right-3 top-1/2 -translate-y-1/2">Ctrl K</span>
+        </div>
+        <button id="commandBtn" title="Command palette" class="hidden sm:grid w-11 h-11 rounded-xl bg-white dark:bg-slate-900 place-items-center"><i class="fa-solid fa-terminal"></i></button>
+        <button id="notifyBtn" class="w-11 h-11 rounded-xl bg-white dark:bg-slate-900 relative"><i class="fa-regular fa-bell"></i><span id="notifyDot" class="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-500"></span></button>
+        <button id="themeBtn" class="w-11 h-11 rounded-xl bg-white dark:bg-slate-900"><i class="fa-solid fa-moon"></i></button>
+      </div>
+    </header>
+
+    <div id="content" class="p-4 sm:p-6 max-w-[1700px] mx-auto"></div>
+  </main>
+</div>
+
+<!-- Task Modal -->
+<div id="taskModal" class="fixed inset-0 z-[80] hidden items-center justify-center p-3 sm:p-6 bg-slate-950/60 backdrop-blur-sm">
+  <div class="glass bg-white dark:bg-slate-900 rounded-3xl w-full max-w-3xl max-h-[94vh] overflow-y-auto pop">
+    <div class="p-5 sm:p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between sticky top-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur z-10">
+      <div><p class="text-xs uppercase tracking-widest text-indigo-500 font-black">Task editor</p><h2 id="modalTitle" class="text-2xl font-black">Create task</h2></div>
+      <button data-close="taskModal" class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="taskForm" class="p-5 sm:p-6 space-y-5">
+      <input type="hidden" id="taskId">
+      <div><label class="font-bold text-sm">Task title *</label><input id="fTitle" required class="w-full mt-1 px-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800" placeholder="e.g. Finish project presentation"></div>
+      <div><label class="font-bold text-sm">Detailed description</label><textarea id="fDesc" rows="3" class="w-full mt-1 px-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800" placeholder="Add context, notes or instructions…"></textarea></div>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div><label class="font-bold text-sm">Category</label><select id="fCategory" class="w-full mt-1 px-3 py-3 rounded-xl bg-slate-100 dark:bg-slate-800"><option>Work</option><option>Personal</option><option>Study</option><option>Fitness</option><option>Shopping</option></select></div>
+        <div><label class="font-bold text-sm">Priority</label><select id="fPriority" class="w-full mt-1 px-3 py-3 rounded-xl bg-slate-100 dark:bg-slate-800"><option>High</option><option selected>Medium</option><option>Low</option></select></div>
+        <div><label class="font-bold text-sm">Due date</label><input id="fDue" type="date" class="w-full mt-1 px-3 py-3 rounded-xl bg-slate-100 dark:bg-slate-800"></div>
+        <div><label class="font-bold text-sm">Due time</label><input id="fTime" type="time" class="w-full mt-1 px-3 py-3 rounded-xl bg-slate-100 dark:bg-slate-800"></div>
+      </div>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div><label class="font-bold text-sm">Tags</label><input id="fTags" class="w-full mt-1 px-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800" placeholder="urgent, client, sprint"></div>
+        <div><label class="font-bold text-sm">Project</label><input id="fProject" class="w-full mt-1 px-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800" placeholder="Project name"></div>
+      </div>
+      <div class="border border-slate-200 dark:border-slate-800 rounded-2xl p-4">
+        <div class="flex items-center justify-between mb-3"><div><h3 class="font-black">Subtasks / Checklist</h3><p class="text-xs text-slate-500">Completion percentage updates automatically.</p></div><span id="subPct" class="text-sm font-black text-indigo-600">0%</span></div>
+        <div id="subtaskList" class="space-y-2"></div>
+        <div class="flex gap-2 mt-3"><input id="newSubtask" class="flex-1 px-3 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800" placeholder="Add a subtask…"><button type="button" id="addSubtask" class="px-4 rounded-xl bg-indigo-600 text-white"><i class="fa-solid fa-plus"></i></button></div>
+      </div>
+      <div class="flex justify-end gap-2"><button type="button" data-close="taskModal" class="px-5 py-3 rounded-xl font-bold">Cancel</button><button class="px-6 py-3 rounded-xl bg-indigo-600 text-white font-bold"><i class="fa-solid fa-check mr-2"></i>Save Task</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- Generic Modal -->
+<div id="genericModal" class="fixed inset-0 z-[90] hidden items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+  <div id="genericBox" class="glass bg-white dark:bg-slate-900 rounded-3xl w-full max-w-2xl p-6 pop"></div>
+</div>
+<div id="toast" class="fixed bottom-5 right-5 z-[100] translate-y-24 opacity-0 transition-all duration-300 max-w-sm"></div>
+
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const uid=()=>crypto.randomUUID?crypto.randomUUID():Date.now()+"-"+Math.random().toString(36).slice(2);
+const todayStr=()=>new Date().toISOString().slice(0,10);
+const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+const defaults=[
+ {id:uid(),title:"Plan your week",desc:"Set priorities and block time for the most important outcomes.",category:"Work",priority:"High",due:todayStr(),time:"09:00",created:Date.now()-86400000*2,done:false,archived:false,tags:["planning"],project:"Personal OS",subtasks:[{id:uid(),text:"Review calendar",done:true},{id:uid(),text:"Pick top 3 outcomes",done:false},{id:uid(),text:"Block focus time",done:false}]},
+ {id:uid(),title:"30 minute workout",desc:"Mobility and strength session.",category:"Fitness",priority:"Medium",due:todayStr(),time:"18:00",created:Date.now()-86400000,done:false,archived:false,tags:["health"],project:"Wellness",subtasks:[]},
+ {id:uid(),title:"Read study chapter",desc:"Finish the next chapter and write 5 key takeaways.",category:"Study",priority:"Low",due:"",time:"",created:Date.now()-3600000,done:false,archived:false,tags:["learning"],project:"Learning",subtasks:[]},
+ {id:uid(),title:"Buy groceries",desc:"Milk, fruit, vegetables and pantry basics.",category:"Shopping",priority:"Medium",due:new Date(Date.now()+86400000).toISOString().slice(0,10),time:"17:30",created:Date.now()-7200000,done:false,archived:false,tags:["home"],project:"Home",subtasks:[]}
+];
+let state={tasks:[],view:"dashboard",tab:"All",category:"All",sort:"created",search:"",dark:localStorage.getItem("tm_dark")==="1",user:null,authMode:"login",demo:true,habits:JSON.parse(localStorage.getItem("tm_habits")||"[]"),focusSeconds:25*60,focusRunning:false,streak:Number(localStorage.getItem("tm_streak")||0),xp:Number(localStorage.getItem("tm_xp")||0),level:Number(localStorage.getItem("tm_level")||1),projectFilter:"",projects:JSON.parse(localStorage.getItem("tm_projects")||"[]")};
+function storageKey(){return "tm_tasks_"+(state.user?.uid||state.user?.email||"demo")}
+function loadTasks(){try{const x=JSON.parse(localStorage.getItem(storageKey())||"null");state.tasks=Array.isArray(x)?x:structuredClone(defaults)}catch{state.tasks=structuredClone(defaults)}}
+function save(){localStorage.setItem(storageKey(),JSON.stringify(state.tasks))}
+function toast(msg,type="info"){const t=$("#toast");const icon=type==="success"?"fa-circle-check":type==="error"?"fa-circle-exclamation":"fa-circle-info";t.innerHTML=`<div class="glass bg-white dark:bg-slate-900 rounded-2xl px-4 py-3 flex gap-3 items-center shadow-2xl"><i class="fa-solid ${icon} ${type==="error"?"text-red-500":"text-indigo-500"}"></i><span class="font-semibold text-sm">${esc(msg)}</span></div>`;t.classList.remove("translate-y-24","opacity-0");setTimeout(()=>t.classList.add("translate-y-24","opacity-0"),2800)}
+function initials(name){return (name||"TM").split(/\s+/).map(x=>x[0]).join("").slice(0,2).toUpperCase()}
+function applyTheme(){document.documentElement.classList.toggle("dark",state.dark);localStorage.setItem("tm_dark",state.dark?"1":"0");$$("#themeBtn,#authTheme").forEach(b=>b&&(b.innerHTML=`<i class="fa-solid ${state.dark?"fa-sun":"fa-moon"}"></i>`))}
+function completion(t){if(!t.subtasks?.length)return t.done?100:0;return Math.round(t.subtasks.filter(s=>s.done).length/t.subtasks.length*100)}
+function overdue(t){return !t.done&&t.due&&t.due<todayStr()}
+function dueToday(t){return t.due===todayStr()}
+function priorityWeight(p){return p==="High"?3:p==="Medium"?2:1}
+function filteredTasks(){let a=state.tasks.filter(t=>!t.archived);if(state.projectFilter)a=a.filter(t=>t.project===state.projectFilter);const q=state.search.toLowerCase().trim();if(q)a=a.filter(t=>(t.title+" "+t.desc+" "+(t.tags||[]).join(" ")).toLowerCase().includes(q));if(state.tab==="Active")a=a.filter(t=>!t.done);if(state.tab==="Completed")a=a.filter(t=>t.done);if(state.tab==="Due Today")a=a.filter(dueToday);if(state.tab==="High Priority")a=a.filter(t=>t.priority==="High");if(state.category!=="All")a=a.filter(t=>t.category===state.category);a.sort((x,y)=>state.sort==="due"?((x.due||"9999")+(x.time||"")).localeCompare((y.due||"9999")+(y.time||"")):state.sort==="priority"?priorityWeight(y.priority)-priorityWeight(x.priority):y.created-x.created);return a}
+function stats(){const all=state.tasks.filter(t=>!t.archived),completed=all.filter(t=>t.done),over=all.filter(overdue);return {total:all.length,pending:all.length-completed.length,completed:completed.length,overdue:over.length,pct:all.length?Math.round(completed.length/all.length*100):0}}
+function priorityBadge(p){return `<span class="px-2 py-1 rounded-lg text-[11px] font-black ${p==="High"?"bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-300":p==="Medium"?"bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300":"bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300"}">${p}</span>`}
+function taskCard(t,drag=true){const pct=completion(t);return `<article draggable="${drag}" data-id="${t.id}" class="task-card glass bg-white dark:bg-slate-900 rounded-2xl p-4 ${t.done?"opacity-75":""}">
+ <div class="flex gap-3"><button data-action="toggle" data-id="${t.id}" class="mt-0.5 w-6 h-6 rounded-full border-2 ${t.done?"bg-indigo-600 border-indigo-600 text-white":"border-slate-300 dark:border-slate-600"} grid place-items-center shrink-0"><i class="fa-solid fa-check text-xs ${t.done?"":"hidden"}"></i></button>
+ <div class="min-w-0 flex-1"><div class="flex flex-wrap items-center gap-2">${priorityBadge(t.priority)}<span class="text-[11px] font-bold text-slate-500">${esc(t.category)}</span>${t.project?`<span class="text-[11px] text-indigo-500"><i class="fa-solid fa-folder mr-1"></i>${esc(t.project)}</span>`:""}</div>
+ <h3 class="font-black mt-2 ${t.done?"line-through":""}">${esc(t.title)}</h3><p class="text-sm text-slate-500 mt-1 line-clamp-2">${esc(t.desc)}</p>
+ ${t.subtasks?.length?`<div class="mt-3"><div class="flex justify-between text-[11px] font-bold text-slate-500"><span>Checklist</span><span>${pct}%</span></div><div class="h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 mt-1 overflow-hidden"><div class="h-full bg-indigo-500" style="width:${pct}%"></div></div></div>`:""}
+ <div class="flex flex-wrap items-center gap-2 mt-3 text-xs text-slate-500">${t.due?`<span class="${overdue(t)?"text-red-500 font-bold":""}"><i class="fa-regular fa-calendar mr-1"></i>${esc(t.due)} ${esc(t.time||"")}</span>`:""}${(t.tags||[]).map(x=>`<span class="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800">#${esc(x)}</span>`).join("")}</div>
+ </div><div class="flex flex-col gap-1"><button data-action="edit" data-id="${t.id}" class="w-9 h-9 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"><i class="fa-solid fa-pen"></i></button><button data-action="duplicate" data-id="${t.id}" class="w-9 h-9 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"><i class="fa-regular fa-copy"></i></button><button data-action="delete" data-id="${t.id}" class="w-9 h-9 rounded-lg hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"><i class="fa-regular fa-trash-can"></i></button></div></div></article>`}
+function header(title,subtitle){return `<div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6"><div><p class="text-xs uppercase tracking-widest text-indigo-500 font-black">TaskMaster Pro</p><h1 class="text-3xl sm:text-4xl font-black">${title}</h1><p class="text-slate-500 mt-1">${subtitle}</p></div><button id="headerAdd" class="px-4 py-3 rounded-xl bg-indigo-600 text-white font-bold"><i class="fa-solid fa-plus mr-2"></i>New task</button></div>`}
+function renderDashboard(){const s=stats(), list=filteredTasks().slice(0,6);return `${header("Good to see you 👋","Your productivity command center for today.")}
+<div class="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+${[["Total Tasks",s.total,"fa-list-check","indigo"],["Pending",s.pending,"fa-hourglass-half","amber"],["Completed",s.completed,"fa-circle-check","emerald"],["Overdue",s.overdue,"fa-triangle-exclamation","red"]].map(x=>`<div class="glass rounded-2xl p-5 bg-white dark:bg-slate-900"><div class="flex justify-between"><div><p class="text-sm text-slate-500">${x[0]}</p><p class="text-3xl font-black mt-1">${x[1]}</p></div><div class="w-11 h-11 rounded-xl bg-${x[3]}-100 dark:bg-${x[3]}-500/15 text-${x[3]}-600 grid place-items-center"><i class="fa-solid ${x[2]}"></i></div></div></div>`).join("")}
+</div>
+<div class="grid xl:grid-cols-3 gap-6 mb-6">
+<div class="xl:col-span-2 glass rounded-2xl p-5 bg-white dark:bg-slate-900"><div class="flex justify-between items-center mb-4"><div><h2 class="font-black text-lg">Overall progress</h2><p class="text-sm text-slate-500">${s.completed} of ${s.total} tasks completed</p></div><span class="text-2xl font-black text-indigo-600">${s.pct}%</span></div><div class="h-4 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden"><div class="h-full bg-gradient-to-r from-indigo-500 to-cyan-400 transition-all duration-700" style="width:${s.pct}%"></div></div><div class="grid grid-cols-3 gap-3 mt-5 text-center"><div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800"><p class="font-black">${state.streak} days</p><p class="text-xs text-slate-500">Productivity streak</p></div><div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800"><p class="font-black">${state.habits.filter(h=>h.doneToday).length}</p><p class="text-xs text-slate-500">Habits today</p></div><div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800"><p class="font-black">${Math.min(100,s.pct+10)}</p><p class="text-xs text-slate-500">Focus score</p></div></div></div>
+<div class="glass rounded-2xl p-5 bg-gradient-to-br from-indigo-600 to-violet-600 text-white"><div class="flex justify-between"><div><p class="text-white/70 text-sm">Today's focus</p><h2 class="text-2xl font-black mt-1">${dueTodayCount()} tasks</h2></div><div class="w-12 h-12 rounded-2xl bg-white/15 grid place-items-center"><i class="fa-solid fa-bolt"></i></div></div><p class="text-white/75 text-sm mt-5">Use Focus Mode for a distraction-free Pomodoro session.</p><button data-nav="focus" class="mt-5 w-full py-3 rounded-xl bg-white text-indigo-700 font-black">Start focus session</button></div>
+</div>
+<div class="glass rounded-2xl p-5 bg-white dark:bg-slate-900"><div class="flex justify-between items-center mb-4"><h2 class="font-black text-lg">Priority tasks</h2><button data-nav="tasks" class="text-sm text-indigo-600 font-bold">View all</button></div><div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4">${list.length?list.map(t=>taskCard(t)).join(""):`<div class="col-span-full py-10 text-center text-slate-500">No tasks yet. Create your first one.</div>`}</div></div><div class="grid md:grid-cols-3 gap-4 mt-6"><button data-nav="coach" class="glass text-left rounded-2xl p-5 bg-white dark:bg-slate-900 hover:ring-2 hover:ring-indigo-400"><div class="w-11 h-11 rounded-xl bg-fuchsia-100 dark:bg-fuchsia-500/10 text-fuchsia-600 grid place-items-center"><i class="fa-solid fa-wand-magic-sparkles"></i></div><h3 class="font-black mt-3">AI Focus Coach</h3><p class="text-sm text-slate-500 mt-1">Smart next-step recommendations.</p></button><button data-nav="achievements" class="glass text-left rounded-2xl p-5 bg-white dark:bg-slate-900 hover:ring-2 hover:ring-amber-400"><div class="w-11 h-11 rounded-xl bg-amber-100 dark:bg-amber-500/10 text-amber-600 grid place-items-center"><i class="fa-solid fa-trophy"></i></div><h3 class="font-black mt-3">Achievements & Level</h3><p class="text-sm text-slate-500 mt-1">XP, badges and streaks.</p></button><button data-nav="upcoming" class="glass text-left rounded-2xl p-5 bg-white dark:bg-slate-900 hover:ring-2 hover:ring-cyan-400"><div class="w-11 h-11 rounded-xl bg-cyan-100 dark:bg-cyan-500/10 text-cyan-600 grid place-items-center"><i class="fa-regular fa-clock"></i></div><h3 class="font-black mt-3">Upcoming</h3><p class="text-sm text-slate-500 mt-1">Next deadlines at a glance.</p></button></div>`}
+function dueTodayCount(){return state.tasks.filter(t=>dueToday(t)&&!t.done&&!t.archived).length}
+function renderTasks(){const list=filteredTasks();return `${header("All Tasks","Search, filter, sort and manage your complete task system.")}
+<div class="glass rounded-2xl p-4 mb-5 bg-white dark:bg-slate-900"><div class="flex flex-wrap gap-2 mb-4">${["All","Active","Completed","Due Today","High Priority"].map(x=>`<button data-tab="${x}" class="px-3 py-2 rounded-xl text-sm font-bold ${state.tab===x?"bg-indigo-600 text-white":"bg-slate-100 dark:bg-slate-800"}">${x}</button>`).join("")}</div><div class="flex flex-col sm:flex-row gap-3"><select id="categoryFilter" class="px-3 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800"><option>All</option>${["Work","Personal","Study","Fitness","Shopping"].map(x=>`<option ${state.category===x?"selected":""}>${x}</option>`).join("")}</select><select id="sortFilter" class="px-3 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800"><option value="created" ${state.sort==="created"?"selected":""}>Sort: Date Created</option><option value="due" ${state.sort==="due"?"selected":""}>Sort: Due Date</option><option value="priority" ${state.sort==="priority"?"selected":""}>Sort: Priority (High → Low)</option></select><button id="clearCompleted" class="sm:ml-auto px-4 py-2.5 rounded-xl bg-red-50 dark:bg-red-500/10 text-red-600 font-bold">Clear completed</button></div></div>
+<div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4">${list.length?list.map(t=>taskCard(t)).join(""):`<div class="col-span-full glass rounded-2xl py-16 text-center bg-white dark:bg-slate-900"><i class="fa-solid fa-inbox text-4xl text-slate-300"></i><h3 class="font-black text-lg mt-3">Nothing here</h3><p class="text-slate-500 mt-1">Try changing your filters or create a new task.</p></div>`}</div>`}
+function renderCalendar(){const d=new Date(),y=d.getFullYear(),m=d.getMonth(),first=new Date(y,m,1).getDay(),days=new Date(y,m+1,0).getDate();let cells="";for(let i=0;i<first;i++)cells+=`<div></div>`;for(let day=1;day<=days;day++){const ds=`${y}-${String(m+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`, ts=state.tasks.filter(t=>t.due===ds&&!t.archived);cells+=`<div class="min-h-28 rounded-xl border border-slate-200 dark:border-slate-800 p-2 ${ds===todayStr()?"ring-2 ring-indigo-500":""}"><div class="font-black text-sm">${day}</div>${ts.slice(0,3).map(t=>`<button data-action="edit" data-id="${t.id}" class="block w-full text-left text-xs truncate mt-1 px-2 py-1 rounded bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600">${esc(t.title)}</button>`).join("")}${ts.length>3?`<div class="text-[10px] text-slate-400 mt-1">+${ts.length-3} more</div>`:""}</div>`}return `${header("Calendar","Monthly task scheduling and deadline overview.")}<div class="glass rounded-2xl p-4 bg-white dark:bg-slate-900"><div class="grid grid-cols-7 gap-2 text-xs font-black text-slate-400 mb-2">${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(x=>`<div class="p-2">${x}</div>`).join("")}</div><div class="grid grid-cols-7 gap-2">${cells}</div></div>`}
+function renderBoard(){const cols=["Active","In Progress","Completed"];return `${header("Board View","Drag-ready Kanban-style workspace.")}<div class="grid lg:grid-cols-3 gap-4">${cols.map(c=>`<section class="glass rounded-2xl p-4 bg-white dark:bg-slate-900 min-h-96"><div class="flex justify-between items-center mb-3"><h2 class="font-black">${c}</h2><span class="text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">${c==="Completed"?state.tasks.filter(t=>t.done&&!t.archived).length:state.tasks.filter(t=>!t.done&&!t.archived).length}</span></div><div class="space-y-3">${state.tasks.filter(t=>!t.archived&&(c==="Completed"?t.done:!t.done)).slice(0,8).map(t=>taskCard(t,false)).join("")}</div></section>`).join("")}</div>`}
+function renderTimeline(){const list=state.tasks.filter(t=>!t.archived&&t.due).sort((a,b)=>(a.due+a.time).localeCompare(b.due+b.time));return `${header("Timeline","A chronological view of your scheduled work.")}<div class="glass rounded-2xl p-6 bg-white dark:bg-slate-900"><div class="relative border-l-2 border-indigo-200 dark:border-indigo-900 ml-3 space-y-7">${list.map(t=>`<div class="relative pl-7"><span class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-indigo-600 ring-4 ring-white dark:ring-slate-900"></span><p class="text-xs font-bold text-indigo-600">${esc(t.due)} ${esc(t.time||"")}</p><h3 class="font-black mt-1">${esc(t.title)}</h3><p class="text-sm text-slate-500">${esc(t.desc)}</p></div>`).join("")||`<p class="text-slate-500">No scheduled tasks.</p>`}</div></div>`}
+function renderAnalytics(){const s=stats(),cats=["Work","Personal","Study","Fitness","Shopping"];return `${header("Analytics","Understand your workload, completion and productivity patterns.")}<div class="grid md:grid-cols-2 xl:grid-cols-4 gap-4">${cats.map(c=>{const a=state.tasks.filter(t=>t.category===c&&!t.archived),done=a.filter(t=>t.done).length,p=a.length?Math.round(done/a.length*100):0;return `<div class="glass rounded-2xl p-5 bg-white dark:bg-slate-900"><div class="flex justify-between"><b>${c}</b><span>${p}%</span></div><div class="h-2 bg-slate-200 dark:bg-slate-800 rounded-full mt-3"><div class="h-full bg-indigo-500 rounded-full" style="width:${p}%"></div></div><p class="text-xs text-slate-500 mt-2">${done}/${a.length} complete</p></div>`}).join("")}</div><div class="glass rounded-2xl p-6 mt-6 bg-white dark:bg-slate-900"><h2 class="font-black text-lg">Productivity snapshot</h2><div class="grid sm:grid-cols-3 gap-4 mt-4"><div><p class="text-3xl font-black">${s.pct}%</p><p class="text-sm text-slate-500">Completion rate</p></div><div><p class="text-3xl font-black">${state.streak}</p><p class="text-sm text-slate-500">Day streak</p></div><div><p class="text-3xl font-black">${state.tasks.reduce((n,t)=>n+(t.subtasks?.length||0),0)}</p><p class="text-sm text-slate-500">Subtasks tracked</p></div></div></div>`}
+
+function renderSmartList(mode){
+  let list=state.tasks.filter(t=>!t.archived),title="Tasks",sub="A focused view of your work.";
+  if(mode==="today"){list=list.filter(t=>dueToday(t));title="Today";sub="Everything scheduled for today."}
+  if(mode==="upcoming"){list=list.filter(t=>t.due&&t.due>todayStr()&&!t.done).sort((a,b)=>a.due.localeCompare(b.due));title="Upcoming";sub="Your next deadlines, sorted by date."}
+  if(mode==="overdue"){list=list.filter(t=>overdue(t));title="Overdue";sub="Tasks that have passed their deadline."}
+  if(mode==="completed"){list=list.filter(t=>t.done);title="Completed";sub="Your finished work and wins."}
+  return `${header(title,sub)}
+  <div class="glass rounded-2xl p-4 mb-5 bg-white dark:bg-slate-900"><div class="flex flex-wrap gap-2"><span class="px-3 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 font-bold text-sm">${list.length} tasks</span>${mode==="overdue"?'<button id="rescheduleOverdue" class="px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 font-bold text-sm">Smart reschedule</button>':""}${mode==="completed"?'<button id="restoreAllCompleted" class="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 font-bold text-sm">Restore all</button>':""}</div></div>
+  <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4">${list.length?list.map(t=>taskCard(t)).join(""):`<div class="col-span-full glass rounded-2xl p-12 text-center bg-white dark:bg-slate-900"><i class="fa-solid fa-circle-check text-4xl text-emerald-400"></i><h3 class="font-black text-lg mt-3">${mode==="overdue"?"All clear!":"Nothing to show"}</h3><p class="text-slate-500 mt-1">${mode==="overdue"?"No overdue tasks right now.":"Your workspace is clear for this view."}</p></div>`}</div>`;
+}
+function renderCoach(){
+  const s=stats(),urgent=state.tasks.filter(t=>!t.done&&!t.archived).sort((a,b)=>priorityWeight(b.priority)-priorityWeight(a.priority)||(a.due||"9999").localeCompare(b.due||"9999")).slice(0,6);
+  const advice=s.overdue?`You have ${s.overdue} overdue task(s). Clear one small item first, then reschedule the rest.`:s.pending===0?"Your task list is clear. Use the extra time for a habit, learning, or planning.":s.pct>=75?"Strong completion pace. Protect a deep-work block for your highest-priority item.":"Start with one High priority task and work for 25 minutes without switching.";
+  return `${header("AI Focus Coach","Smart local coaching based on your tasks, deadlines and streak.")}
+  <div class="grid lg:grid-cols-3 gap-5"><div class="lg:col-span-2 glass rounded-3xl p-6 bg-gradient-to-br from-indigo-600 to-fuchsia-600 text-white"><div class="flex items-start gap-4"><div class="w-14 h-14 rounded-2xl bg-white/15 grid place-items-center text-2xl"><i class="fa-solid fa-wand-magic-sparkles"></i></div><div><p class="text-white/70 text-sm font-bold">TODAY'S COACHING</p><h2 class="text-2xl font-black mt-1">${esc(advice)}</h2></div></div><div class="grid sm:grid-cols-3 gap-3 mt-7"><div class="rounded-2xl bg-white/10 p-4"><p class="text-2xl font-black">${s.pending}</p><p class="text-xs text-white/70">Pending</p></div><div class="rounded-2xl bg-white/10 p-4"><p class="text-2xl font-black">${s.overdue}</p><p class="text-xs text-white/70">Overdue</p></div><div class="rounded-2xl bg-white/10 p-4"><p class="text-2xl font-black">${state.streak}</p><p class="text-xs text-white/70">Streak</p></div></div></div>
+  <div class="glass rounded-3xl p-6 bg-white dark:bg-slate-900"><h3 class="font-black">Smart suggestions</h3><div class="space-y-3 mt-4">${["Do the hardest task before low-value work.","Group similar tasks into one focused block.","Use tags to reduce search time.","End the day by planning tomorrow's top 3."].map(x=>`<div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 text-sm">${x}</div>`).join("")}</div></div></div>
+  <div class="glass rounded-2xl p-5 mt-5 bg-white dark:bg-slate-900"><div class="flex justify-between items-center"><h3 class="font-black">Coach priority queue</h3><span class="text-xs text-slate-500">Priority + due date</span></div><div class="grid md:grid-cols-2 xl:grid-cols-3 gap-3 mt-4">${urgent.map(t=>`<button data-action="edit" data-id="${t.id}" class="text-left p-4 rounded-xl bg-slate-50 dark:bg-slate-800 hover:ring-2 hover:ring-indigo-400"><div class="flex justify-between gap-2">${priorityBadge(t.priority)}<span class="text-xs text-slate-500">${esc(t.due||"No date")}</span></div><p class="font-bold mt-2">${esc(t.title)}</p></button>`).join("")||'<p class="text-slate-500">No active tasks.</p>'}</div></div>`;
+}
+function renderAchievements(){
+  const s=stats(),xp=state.xp,level=state.level,base=250,progress=xp%base;
+  const achievements=[["First Step","Complete your first task",s.completed>=1,"fa-shoe-prints"],["Task Crusher","Complete 10 tasks",s.completed>=10,"fa-bolt"],["On Fire","Reach a 3-day streak",state.streak>=3,"fa-fire"],["Century","Earn 1000 XP",xp>=1000,"fa-star"],["Deep Worker","Finish a focus session",localStorage.getItem("tm_focus_done")==="1","fa-bullseye"],["Checklist Pro","Complete 10 subtasks",state.tasks.reduce((n,t)=>n+(t.subtasks||[]).filter(x=>x.done).length,0)>=10,"fa-list-check"]];
+  return `${header("Achievements & Level","Earn XP from completed work and build your productivity streak.")}
+  <div class="grid lg:grid-cols-3 gap-5 mb-5"><div class="lg:col-span-2 glass rounded-3xl p-6 bg-white dark:bg-slate-900"><div class="flex items-center gap-5"><div class="w-24 h-24 rounded-full ring grid place-items-center" style="--p:${Math.round(progress/base*100)}%"><div class="w-16 h-16 rounded-full bg-white dark:bg-slate-900 grid place-items-center text-2xl font-black">${level}</div></div><div><p class="text-xs uppercase tracking-widest text-indigo-500 font-black">Current level</p><h2 class="text-3xl font-black">Level ${level}</h2><p class="text-slate-500">${xp} XP • ${base-progress} XP to next level</p></div></div><div class="h-3 bg-slate-200 dark:bg-slate-800 rounded-full mt-6 overflow-hidden"><div class="h-full bg-gradient-to-r from-indigo-500 to-fuchsia-500" style="width:${Math.round(progress/base*100)}%"></div></div></div><div class="glass rounded-3xl p-6 bg-gradient-to-br from-amber-400 to-orange-500 text-white"><i class="fa-solid fa-trophy text-3xl"></i><p class="mt-4 text-white/80">Streak</p><p class="text-4xl font-black">${state.streak} days</p><p class="text-sm text-white/80 mt-1">Keep completing tasks to grow it.</p></div></div>
+  <div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">${achievements.map(a=>`<div class="glass rounded-2xl p-5 bg-white dark:bg-slate-900 ${a[2]?"":"opacity-50"}"><div class="flex justify-between"><div class="w-12 h-12 rounded-xl ${a[2]?"bg-amber-100 text-amber-500":"bg-slate-100 text-slate-400"} grid place-items-center text-xl"><i class="fa-solid ${a[3]}"></i></div>${a[2]?'<span class="text-emerald-500 font-bold text-xs">UNLOCKED</span>':'<i class="fa-solid fa-lock text-slate-400"></i>'}</div><h3 class="font-black mt-4">${a[0]}</h3><p class="text-sm text-slate-500 mt-1">${a[1]}</p></div>`).join("")}</div>`;
+}
+function renderFocus(){return `${header("Focus Mode","Pomodoro timer for deep, distraction-free work.")}<div class="grid lg:grid-cols-2 gap-6"><div class="glass rounded-3xl p-8 bg-white dark:bg-slate-900 text-center"><p class="text-indigo-600 font-black uppercase tracking-widest text-sm">Focus session</p><div class="mx-auto mt-7 w-56 h-56 rounded-full ring grid place-items-center" style="--p:${Math.max(0,100-state.focusSeconds/(25*60)*100)}%"><div class="w-44 h-44 rounded-full bg-white dark:bg-slate-900 grid place-items-center"><span id="timer" class="text-5xl font-black">${fmt(state.focusSeconds)}</span></div></div><div class="flex justify-center gap-3 mt-7"><button id="focusToggle" class="px-6 py-3 rounded-xl bg-indigo-600 text-white font-bold">${state.focusRunning?"Pause":"Start"}</button><button id="focusReset" class="px-5 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 font-bold">Reset</button></div></div><div class="glass rounded-3xl p-6 bg-white dark:bg-slate-900"><h2 class="font-black text-xl">Focus toolkit</h2><div class="space-y-3 mt-5">${["Silence non-essential notifications","Choose one clearly defined task","Work in 25-minute intervals","Take a short break after each session","Review your completed work"].map((x,i)=>`<div class="flex gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800"><span class="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-600 grid place-items-center font-black">${i+1}</span><p class="text-sm">${x}</p></div>`).join("")}</div></div></div>`}
+function renderHabits(){return `${header("Habit Tracking","Build repeatable routines alongside your tasks.")}<div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">${state.habits.map(h=>`<div class="glass rounded-2xl p-5 bg-white dark:bg-slate-900"><div class="flex justify-between"><h3 class="font-black">${esc(h.name)}</h3><button data-habit="${h.id}" class="text-slate-400"><i class="fa-solid fa-trash"></i></button></div><p class="text-sm text-slate-500 mt-1">${esc(h.frequency||"Daily")} • ${h.streak||0} day streak</p><button data-habit-done="${h.id}" class="w-full mt-4 py-2.5 rounded-xl ${h.doneToday?"bg-emerald-500 text-white":"bg-slate-100 dark:bg-slate-800"} font-bold">${h.doneToday?"Completed today":"Mark complete"}</button></div>`).join("")||`<div class="col-span-full glass rounded-2xl p-10 text-center text-slate-500 bg-white dark:bg-slate-900">No habits yet.</div>`}</div><div class="glass rounded-2xl p-5 bg-white dark:bg-slate-900"><h2 class="font-black mb-3">Add habit</h2><div class="flex gap-2"><input id="habitName" class="flex-1 px-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800" placeholder="e.g. Read 20 minutes"><button id="addHabit" class="px-5 rounded-xl bg-indigo-600 text-white font-bold">Add</button></div></div>`}
+function renderProjects(){const projects=[...new Set(state.tasks.map(t=>t.project).filter(Boolean))];return `${header("Projects","Project dashboards, deadlines, tags and task progress.")}<div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4">${projects.map(p=>{const a=state.tasks.filter(t=>t.project===p&&!t.archived),d=a.filter(t=>t.done).length,pc=a.length?Math.round(d/a.length*100):0;return `<div class="glass rounded-2xl p-5 bg-white dark:bg-slate-900"><div class="flex justify-between"><h3 class="font-black">${esc(p)}</h3><span class="text-sm font-bold">${pc}%</span></div><p class="text-sm text-slate-500 mt-1">${d}/${a.length} tasks completed</p><div class="h-2 bg-slate-200 dark:bg-slate-800 rounded-full mt-4"><div class="h-full bg-indigo-500 rounded-full" style="width:${pc}%"></div></div></div>`}).join("")||`<div class="col-span-full glass rounded-2xl p-10 text-center text-slate-500">Create a task with a project name to see it here.</div>`}</div>`}
+function render(){if(!state.user){$("#authScreen").classList.remove("hidden");$("#authScreen").classList.add("flex");$("#app").classList.add("hidden");return}$("#authScreen").classList.add("hidden");$("#authScreen").classList.remove("flex");$("#app").classList.remove("hidden");applyTheme();$("#profileName").textContent=state.user.displayName||state.user.name||"Demo User";$("#profileEmail").textContent=state.user.email||"demo@local";$("#avatar").textContent=initials(state.user.displayName||state.user.name);
+  const upcomingCount=state.tasks.filter(t=>!t.done&&!t.archived&&t.due&&t.due>todayStr()).length,overdueCount=state.tasks.filter(t=>overdue(t)).length,completedCount=state.tasks.filter(t=>t.done&&!t.archived).length;
+  if($("#sideUpcoming"))$("#sideUpcoming").textContent=upcomingCount;if($("#sideOverdue"))$("#sideOverdue").textContent=overdueCount;if($("#sideCompleted"))$("#sideCompleted").textContent=completedCount;
+  if($("#dynamicProjects"))$("#dynamicProjects").innerHTML=state.projects.map(p=>`<button data-project="${esc(p)}" class="sidebar-item w-full text-left px-3 py-2.5 rounded-xl"><i class="fa-solid fa-circle text-indigo-400 text-[10px] w-6"></i>${esc(p)}</button>`).join("");
+  let c=state.view==="dashboard"?renderDashboard():state.view==="tasks"?renderTasks():state.view==="today"?renderSmartList("today"):state.view==="upcoming"?renderSmartList("upcoming"):state.view==="overdue"?renderSmartList("overdue"):state.view==="completed"?renderSmartList("completed"):state.view==="calendar"?renderCalendar():state.view==="board"?renderBoard():state.view==="timeline"?renderTimeline():state.view==="focus"?renderFocus():state.view==="habits"?renderHabits():state.view==="coach"?renderCoach():state.view==="achievements"?renderAchievements():state.view==="projects"?renderProjects():renderAnalytics();$("#content").innerHTML=`<div class="fade">${c}</div>`;bindDynamic();updateAuthHint()}
+function bindDynamic(){
+  $("#headerAdd")?.addEventListener("click",()=>openTask());
+  $$("[data-project]").forEach(b=>b.onclick=()=>{state.projectFilter=b.dataset.project;state.view="tasks";render();toast("Project: "+b.dataset.project)});
+  $("#newProjectBtn")?.addEventListener("click",()=>{const n=prompt("Project name:");if(n&&n.trim()){state.projects=[...new Set([...state.projects,n.trim()])];localStorage.setItem("tm_projects",JSON.stringify(state.projects));render();toast("Project created","success")}});
+  $$("[data-nav]").forEach(b=>b.onclick=()=>{state.view=b.dataset.nav;render()});
+  $$("[data-tab]").forEach(b=>b.onclick=()=>{state.tab=b.dataset.tab;render()});
+  $("#categoryFilter")?.addEventListener("change",e=>{state.category=e.target.value;render()});
+  $("#sortFilter")?.addEventListener("change",e=>{state.sort=e.target.value;render()});
+  $("#clearCompleted")?.addEventListener("click",()=>{state.tasks=state.tasks.filter(t=>!t.done);save();toast("Completed tasks cleared","success");render()});
+  $("#rescheduleOverdue")?.addEventListener("click",()=>{const tomorrow=new Date(Date.now()+86400000).toISOString().slice(0,10);state.tasks.filter(t=>overdue(t)).forEach(t=>t.due=tomorrow);save();toast("Overdue tasks moved to tomorrow","success");render()});
+  $("#restoreAllCompleted")?.addEventListener("click",()=>{state.tasks.forEach(t=>{if(t.done)t.done=false});save();toast("Completed tasks restored");render()});
+  $$("[data-action]").forEach(b=>b.onclick=e=>handleTaskAction(b.dataset.action,b.dataset.id));
+  $$("[data-habit]").forEach(b=>b.onclick=()=>{state.habits=state.habits.filter(h=>h.id!==b.dataset.habit);localStorage.setItem("tm_habits",JSON.stringify(state.habits));render()});
+  $$("[data-habit-done]").forEach(b=>b.onclick=()=>{const h=state.habits.find(x=>x.id===b.dataset.habitDone);if(h&&!h.doneToday){h.doneToday=true;h.streak=(h.streak||0)+1;localStorage.setItem("tm_habits",JSON.stringify(state.habits));toast("Habit completed!","success");render()}});
+  $("#addHabit")?.addEventListener("click",()=>{const n=$("#habitName").value.trim();if(!n)return;state.habits.push({id:uid(),name:n,frequency:"Daily",streak:0,doneToday:false});localStorage.setItem("tm_habits",JSON.stringify(state.habits));render()});
+  $("#focusToggle")?.addEventListener("click",()=>{state.focusRunning=!state.focusRunning;render()});
+  $("#focusReset")?.addEventListener("click",()=>{state.focusRunning=false;state.focusSeconds=25*60;render()});
+}
+function handleTaskAction(action,id){const t=state.tasks.find(x=>x.id===id);if(!t)return;if(action==="toggle"){const was=t.done;t.done=!t.done;save();if(t.done){state.streak=Math.max(1,state.streak+1);state.xp+=50;while(state.xp>=250){state.xp-=250;state.level++;toast("Level up! 🎉","success")}localStorage.setItem("tm_streak",state.streak);localStorage.setItem("tm_xp",state.xp);localStorage.setItem("tm_level",state.level);playChime();if(window.confetti)confetti({particleCount:90,spread:65,origin:{y:.7}});toast("Task completed! 🎉","success")}else toast("Task restored to active");render()}else if(action==="edit")openTask(t);else if(action==="delete"){if(confirm("Delete this task?")){state.tasks=state.tasks.filter(x=>x.id!==id);save();toast("Task deleted");render()}}else if(action==="duplicate"){const n=structuredClone(t);n.id=uid();n.title+=" (copy)";n.done=false;n.created=Date.now();state.tasks.unshift(n);save();toast("Task duplicated","success");render()}}
+function openTask(t=null){$("#taskModal").classList.remove("hidden");$("#taskModal").classList.add("flex");$("#modalTitle").textContent=t?"Edit task":"Create task";$("#taskId").value=t?.id||"";$("#fTitle").value=t?.title||"";$("#fDesc").value=t?.desc||"";$("#fCategory").value=t?.category||"Work";$("#fPriority").value=t?.priority||"Medium";$("#fDue").value=t?.due||"";$("#fTime").value=t?.time||"";$("#fTags").value=(t?.tags||[]).join(", ");$("#fProject").value=t?.project||"";renderSubtasks(t?.subtasks||[])}
+function closeModal(id){$("#"+id).classList.add("hidden");$("#"+id).classList.remove("flex")}
+let editSubs=[];
+function renderSubtasks(subs=editSubs){editSubs=subs.map(x=>({...x}));$("#subtaskList").innerHTML=editSubs.map(s=>`<div class="flex items-center gap-2 p-2 rounded-xl bg-slate-50 dark:bg-slate-800"><button type="button" data-sub-toggle="${s.id}" class="w-6 h-6 rounded-md border ${s.done?"bg-indigo-600 border-indigo-600 text-white":"border-slate-300 dark:border-slate-600"}">${s.done?"✓":""}</button><span class="flex-1 text-sm ${s.done?"line-through text-slate-400":""}">${esc(s.text)}</span><button type="button" data-sub-del="${s.id}" class="text-slate-400 hover:text-red-500"><i class="fa-solid fa-xmark"></i></button></div>`).join("")||`<p class="text-sm text-slate-400 text-center py-3">No subtasks yet.</p>`;const pct=editSubs.length?Math.round(editSubs.filter(s=>s.done).length/editSubs.length*100):0;$("#subPct").textContent=pct+"%";$$("[data-sub-toggle]").forEach(b=>b.onclick=()=>{const s=editSubs.find(x=>x.id===b.dataset.subToggle);s.done=!s.done;renderSubtasks(editSubs)});$$("[data-sub-del]").forEach(b=>b.onclick=()=>renderSubtasks(editSubs.filter(x=>x.id!==b.dataset.subDel)))}
+function playChime(){try{const c=new AudioContext(),o=c.createOscillator(),g=c.createGain();o.frequency.setValueAtTime(660,c.currentTime);o.frequency.exponentialRampToValueAtTime(990,c.currentTime+.12);g.gain.setValueAtTime(.001,c.currentTime);g.gain.exponentialRampToValueAtTime(.12,c.currentTime+.02);g.gain.exponentialRampToValueAtTime(.001,c.currentTime+.35);o.connect(g).connect(c.destination);o.start();o.stop(c.currentTime+.36)}catch{}}
+function fmt(sec){return `${String(Math.floor(sec/60)).padStart(2,"0")}:${String(sec%60).padStart(2,"0")}`}
+setInterval(()=>{if(state.focusRunning&&state.focusSeconds>0){state.focusSeconds--;const el=$("#timer");if(el)el.textContent=fmt(state.focusSeconds);if(state.focusSeconds===0){state.focusRunning=false;state.xp+=100;localStorage.setItem("tm_xp",state.xp);localStorage.setItem("tm_focus_done","1");playChime();toast("Focus session complete! +100 XP","success");if(window.confetti)confetti({particleCount:120,spread:80})}}},1000);
+
+function updateAuthHint(){const h=$("#authHint");if(h)h.textContent=window.TMAuth?.ready?"Cloud authentication enabled — accounts work across devices/domains authorized in Firebase.":"Demo auth is active locally. Add Firebase config in this file to enable real email/Google accounts."}
+async function doAuth(){
+ const email=$("#authEmail").value.trim(),pass=$("#authPassword").value,name=$("#authName").value.trim();
+ if(!email||!pass)return;
+ if(window.TMAuth?.ready){try{
+   if(state.authMode==="signup"){const r=await window.TMAuth.createUserWithEmailAndPassword(window.TMAuth.auth,email,pass);if(name)await window.TMAuth.updateProfile(r.user,{displayName:name})}
+   else await window.TMAuth.signInWithEmailAndPassword(window.TMAuth.auth,email,pass);
+ }catch(e){toast(e.message.replace("Firebase: ",""),"error")}return}
+ state.user={uid:"local-"+btoa(email).replace(/=/g,""),email,name:name||email.split("@")[0],displayName:name||email.split("@")[0]};loadTasks();render();toast(state.authMode==="signup"?"Account created locally":"Logged in locally","success")
+}
+document.addEventListener("DOMContentLoaded",()=>{
+ applyTheme();loadTasks();
+ // Auth UI
+ $$("[data-auth-tab]").forEach(b=>b.onclick=()=>{state.authMode=b.dataset.authTab;$$("[data-auth-tab]").forEach(x=>x.classList.remove("bg-white","dark:bg-slate-700"));b.classList.add("bg-white","dark:bg-slate-700");$("#nameWrap").classList.toggle("hidden",state.authMode!=="signup");$("#authSubmit").textContent=state.authMode==="signup"?"Create account":"Continue"});
+ $("#authForm").onsubmit=e=>{e.preventDefault();doAuth()};
+ $("#googleBtn").onclick=async()=>{if(!window.TMAuth?.ready){toast("Add Firebase config to enable Google Login.","error");return}try{await window.TMAuth.signInWithPopup(window.TMAuth.auth,window.TMAuth.google)}catch(e){toast(e.message.replace("Firebase: ",""),"error")}};
+ $("#forgotBtn").onclick=async()=>{const email=$("#authEmail").value.trim();if(!email)return toast("Enter your email first.","error");if(window.TMAuth?.ready){try{await window.TMAuth.sendPasswordResetEmail(window.TMAuth.auth,email);toast("Password reset email sent.","success")}catch(e){toast(e.message,"error")}}else toast("Password reset requires Firebase authentication.","error")};
+ $("#authTheme").onclick=()=>{state.dark=!state.dark;applyTheme()};
+ $("#themeBtn").onclick=()=>{state.dark=!state.dark;applyTheme()};
+ $("#quickAdd").onclick=()=>openTask();$("#openSidebar").onclick=()=>$("#sidebar").classList.remove("-translate-x-full");$("#closeSidebar").onclick=()=>$("#sidebar").classList.add("-translate-x-full");
+ $("#logoutBtn").onclick=async()=>{if(window.TMAuth?.ready&&state.user?.uid)await window.TMAuth.signOut(window.TMAuth.auth);state.user=null;render()};
+ $("#search").oninput=e=>{state.search=e.target.value;if(state.view!=="tasks")state.view="tasks";render()};
+ $("#commandBtn").onclick=()=>openCommand();$("#notifyBtn").onclick=()=>openNotifications();
+ $$("[data-close]").forEach(b=>b.onclick=()=>closeModal(b.dataset.close));
+ $("#addSubtask").onclick=()=>{const v=$("#newSubtask").value.trim();if(v){editSubs.push({id:uid(),text:v,done:false});$("#newSubtask").value="";renderSubtasks(editSubs)}};
+ $("#taskForm").onsubmit=e=>{e.preventDefault();const id=$("#taskId").value;const old=state.tasks.find(t=>t.id===id);const data={id:id||uid(),title:$("#fTitle").value.trim(),desc:$("#fDesc").value.trim(),category:$("#fCategory").value,priority:$("#fPriority").value,due:$("#fDue").value,time:$("#fTime").value,tags:$("#fTags").value.split(",").map(x=>x.trim()).filter(Boolean),project:$("#fProject").value.trim(),subtasks:editSubs,done:old?.done||false,archived:old?.archived||false,created:old?.created||Date.now()};if(!data.title)return;const i=state.tasks.findIndex(t=>t.id===id);if(i>=0)state.tasks[i]=data;else state.tasks.unshift(data);save();closeModal("taskModal");toast(id?"Task updated":"Task created","success");render()};
+ window.addEventListener("tm-auth-ready",()=>{updateAuthHint();if(!window.TMAuth.ready){state.user=null;render()}});
+ window.addEventListener("tm-auth",e=>{state.user=e.detail;loadTasks();render()});
+ document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();$("#search").focus()}if(e.key==="/"&&document.activeElement.tagName!=="INPUT"&&document.activeElement.tagName!=="TEXTAREA"){e.preventDefault();$("#search").focus()}if(e.key==="Escape"){closeModal("taskModal");closeModal("genericModal")}});
+ render();
+});
+function openCommand(){showGeneric(`<h2 class="text-2xl font-black">Command Center</h2><p class="text-slate-500 mt-1">Keyboard-friendly shortcuts.</p><div class="grid sm:grid-cols-2 gap-3 mt-5">${[["/","Focus search"],["Ctrl K","Open search"],["N","New task"],["Esc","Close modal"]].map(x=>`<div class="p-4 rounded-xl bg-slate-100 dark:bg-slate-800 flex justify-between"><span>${x[1]}</span><kbd class="kbd">${x[0]}</kbd></div>`).join("")}</div>`)}
+function openNotifications(){showGeneric(`<h2 class="text-2xl font-black">Notification Center</h2><div class="space-y-3 mt-5"><div class="p-4 rounded-xl bg-amber-50 dark:bg-amber-500/10"><b>${stats().overdue}</b> overdue task(s)</div><div class="p-4 rounded-xl bg-indigo-50 dark:bg-indigo-500/10"><b>${dueTodayCount()}</b> task(s) due today</div><div class="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-500/10">Browser notifications can be enabled when deployed over HTTPS.</div></div>`)}
+function showGeneric(body){$("#genericBox").innerHTML=body+`<div class="mt-6 text-right"><button data-close="genericModal" class="px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-bold">Close</button></div>`;$("#genericModal").classList.remove("hidden");$("#genericModal").classList.add("flex");$("#genericBox [data-close]").onclick=()=>closeModal("genericModal")}
+</script>
+
+<script>
+// Sidebar navigation + backup/import controls are injected into the profile area.
+document.addEventListener("DOMContentLoaded",()=>{
+  document.querySelectorAll(".sidebar-item").forEach(b=>b.addEventListener("click",()=>{state.view=b.dataset.view;document.getElementById("sidebar").classList.add("-translate-x-full");render()}));
+  const side=document.querySelector("#sidebar .absolute.bottom-0 .flex.items-center");
+  const tools=document.createElement("div");tools.className="flex gap-2 mt-3";tools.innerHTML=`<button id="exportBtn" class="flex-1 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-bold"><i class="fa-solid fa-download mr-1"></i>Backup</button><button id="importBtn" class="flex-1 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-bold"><i class="fa-solid fa-upload mr-1"></i>Restore</button><input id="importFile" type="file" accept="application/json" class="hidden">`;
+  side.parentElement.appendChild(tools);
+  document.getElementById("exportBtn").onclick=()=>{const blob=new Blob([JSON.stringify({version:1,exportedAt:new Date().toISOString(),tasks:state.tasks,habits:state.habits},null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="taskmaster-pro-backup.json";a.click();URL.revokeObjectURL(a.href);toast("Backup exported","success")};
+  document.getElementById("importBtn").onclick=()=>document.getElementById("importFile").click();
+  document.getElementById("importFile").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const x=JSON.parse(r.result);if(Array.isArray(x.tasks)){state.tasks=x.tasks;save()}if(Array.isArray(x.habits)){state.habits=x.habits;localStorage.setItem("tm_habits",JSON.stringify(x.habits))}toast("Backup restored","success");render()}catch{toast("Invalid backup file","error")}};r.readAsText(f)}
+});
+</script>
+</body>
+</html>
